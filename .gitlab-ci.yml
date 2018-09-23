@@ -1,0 +1,22 @@
+# This file is a template, and might need editing before it works on your project.
+# Official docker image.
+image: erlang:20.3
+
+stages:
+    - build
+    - test
+    - deploy
+
+build-master:
+  stage: build
+  script:
+   - make
+  only:
+    - master
+
+build:
+  stage: test
+  script:
+    - make test
+  except:
+    - master
