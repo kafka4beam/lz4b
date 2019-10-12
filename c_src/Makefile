@@ -83,4 +83,4 @@ $(LZ4_SRC):
 
 clean:
 	@rm -f $(C_SRC_OUTPUT) $(OBJECTS)
-	@rm -rf $(LZ4_SRC)
+	@rm -rf $(LZ4_SRC).tar.gz
