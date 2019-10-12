@@ -13,5 +13,6 @@
                  ]},
   {licenses, ["GPLv3"]},
   {links, [{"Gitlab", "https://gitlab.com/qzhuyan/lz4b"}]},
+  {files, ["c_src","src","Makefile","ebin","rebar*","priv","LICENSE"]},
   {env, []}
  ]}.
