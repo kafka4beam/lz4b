@@ -17,7 +17,8 @@ C_SRC_OUTPUT ?= $(CURDIR)/../ebin/$(PROJECT)_nif.so
 LZ4 ?= lz4
 LZ4_VSN ?= 1.9.2
 LZ4_SRC ?= $(LZ4)-$(LZ4_VSN)
-LZ4_SRC_PACKAGE_LINK ?= https://github.com/lz4/lz4/archive/v$(LZ4_VSN).tar.gz
+LZ4_SRC_TAR ?= v$(LZ4_VSN).tar.gz
+LZ4_SRC_PACKAGE_LINK ?= https://github.com/lz4/lz4/archive/$(LZ4_SRC_TAR)
 LZ4_OBJS := $(LZ4_SRC)/lib/*.o
 # System type and C compiler/flags.
 
@@ -83,4 +84,5 @@ $(LZ4_SRC):
 
 clean:
 	@rm -f $(C_SRC_OUTPUT) $(OBJECTS)
-	@rm -rf $(LZ4_SRC).tar.gz
+	@rm -f $(LZ4_SRC_TAR)
+	@rm -rf $(LZ4_SRC)
