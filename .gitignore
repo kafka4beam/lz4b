@@ -1,2 +1,6 @@
-ebin/*
 .erlang.mk
+c_src/lz4-*
+c_src/v*
+_build/
+.eunit/
+.rebar/

@@ -1,7 +1,7 @@
 {application, lz4b,
  [
   {description, "lz4 for beam. An erlang Lz4 NIF library."},
-  {vsn, "0.0.1"},
+  {vsn, "0.0.3"},
   {modules, [
              lz4b_frame,
              lz4b_nif
@@ -11,8 +11,8 @@
                   kernel,
                   stdlib
                  ]},
-  {maintainers, ["William Yang"]},
   {licenses, ["GPLv3"]},
   {links, [{"Gitlab", "https://gitlab.com/qzhuyan/lz4b"}]},
+  {files, ["c_src","src","Makefile","ebin","rebar*","priv","LICENSE"]},
   {env, []}
  ]}.

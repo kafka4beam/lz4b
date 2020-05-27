@@ -70,7 +70,7 @@ static ERL_NIF_TERM frame_decompress(ErlNifEnv* env, int argc, const ERL_NIF_TER
     return ERROR_ATOM("inspect_binary_fail");
 
   if ( enif_is_number(env, argv[1])) {
-    if( ! enif_get_uint(env, argv[1], (uint *) &step_size))
+    if( ! enif_get_uint(env, argv[1], (unsigned int *) &step_size))
       return ERROR_ATOM("bad_yield_size");
   } else if(enif_is_tuple(env, argv[1])) {
     //todo error handling
@@ -356,8 +356,8 @@ int parse_edecompressOption(ErlNifEnv* env,
   if (0 == arity) {
     return -2;
   }
-  enif_get_uint(env, *(opts+1), (uint *) stepsize);
-  enif_get_uint(env, *(opts+2), (uint *) buffgrow_size);
+  enif_get_uint(env, *(opts+1), (unsigned int *) stepsize);
+  enif_get_uint(env, *(opts+2), (unsigned int *) buffgrow_size);
   enif_get_uint(env, *(opts+3), &(dccopt -> stableDst));
   enif_get_uint(env, *(opts+4), &(dccopt -> reserved[0]));
   enif_get_uint(env, *(opts+5), &(dccopt -> reserved[1]));

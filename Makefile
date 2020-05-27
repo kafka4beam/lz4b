@@ -1,26 +1,12 @@
-PROJECT = lz4b
-PROJECT_DESCRIPTION = New project
-PROJECT_VERSION = 0.1.0
+all: compile test
 
-include erlang.mk
+test: compile
+	rebar3 eunit
 
-ERLC=erlc
+compile:
+	rebar3 compile
 
-all:: ebin/lz4b_nif.so lz4b.beam
-
-deps::
-	git submodule init
-	git submodule update
-
-test:: eunit
-
-test-build:: ebin/lz4b_nif.so
-
-ebin/lz4b_nif.so: lz4b_nif.so
-	cp c_src/lz4b_nif.so $@
-
-lz4b_nif.so: c_src/lz4b.c
-	@$(MAKE) -C c_src $@
-
-lz4b.beam: src/lz4b_frame.erl
-	@$(ERLC)  -o ebin/ $^
+clean:
+	rm -rf ebin/*
+	make -C c_src clean
+	rebar3 clean
