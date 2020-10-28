@@ -180,7 +180,7 @@ static ERL_NIF_TERM frame_decompress(ErlNifEnv* env, int argc, const ERL_NIF_TER
 }
 
 
-ERL_NIF_TERM frame_decompress_iter(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM frame_decompress_iter(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
   size_t size_done = -1, size_consumed, suggested;
 
   ErlNifBinary bin, dest;
@@ -246,7 +246,7 @@ ERL_NIF_TERM frame_decompress_iter(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                           enif_make_int(env, suggested));
 }
 
-ERL_NIF_TERM eframeinfo(ErlNifEnv* env, const LZ4F_frameInfo_t* frameinfo) {
+static ERL_NIF_TERM eframeinfo(ErlNifEnv* env, const LZ4F_frameInfo_t* frameinfo) {
   return enif_make_tuple8(env,
                           enif_make_atom(env, "frame_info"),
                           enif_make_uint(env, frameinfo->blockSizeID),
@@ -285,7 +285,7 @@ int parse_eframeinfo(ErlNifEnv* env, LZ4F_frameInfo_t *frameinfop, const ERL_NIF
   return 1;
 }
 
-ERL_NIF_TERM frame_info(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM frame_info(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM tuple;
     LZ4F_frameInfo_t* fi;
 
@@ -305,7 +305,7 @@ ERL_NIF_TERM frame_info(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 }
 
 
-ERL_NIF_TERM read_frame_info(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM read_frame_info(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
   ErlNifBinary bin;
   LZ4F_dctx * dctx;
   LZ4F_frameInfo_t * fi;
