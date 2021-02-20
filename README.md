@@ -27,11 +27,5 @@ lz4b_frame:reload_config() -> ok.
 ```
 
 ## Configuration
-application env: 
+application env:
 `dirty_threshold` : In byte size. binary larger than this size would be handled in a dirty scheduler to avoid long scheduling in erlang scheduler. Default is 0 which means disabled (dirty scheduler not in use).
-
-
-
-
-
-    
