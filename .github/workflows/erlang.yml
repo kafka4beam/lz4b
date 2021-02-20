@@ -11,9 +11,11 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        otp: [22.3.4.16, 21.3.8.21, 20.3.8.26]
     container:
-      image: erlang:22.0.7
+      image: erlang:${{ matrix.otp }}
 
     steps:
     - uses: actions/checkout@v2
