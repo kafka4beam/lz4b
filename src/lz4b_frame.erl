@@ -14,12 +14,16 @@
 init() ->
     lz4b_config:reload_config().
 
--spec decompress(binary()) -> {ok, binary()} | lz4b_nif:error_ret().
+-spec decompress(iodata()) -> {ok, binary()} | lz4b_nif:error_ret().
+decompress(IoData) when not is_binary(IoData) ->
+    compress(iolist_to_binary(IoData));
 decompress(Bin) ->
     decompress(Bin, 0).
 
--spec decompress(binary(), Options :: integer() | #decompress_options{})
+-spec decompress(iodata(), Options :: integer() | #decompress_options{})
                 -> {ok, binary()} | error_ret().
+decompress(IoData, Opts) when not is_binary(IoData) ->
+    decompress(iolist_to_binary(IoData), Opts);
 decompress(Bin, Opts) ->
     case above_threshold(byte_size(Bin)) of
         true ->
