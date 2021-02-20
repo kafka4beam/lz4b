@@ -4,8 +4,10 @@
   {vsn, "0.0.3"},
   {modules, [
              lz4b_frame,
-             lz4b_nif
+             lz4b_nif,
+             lz4b_app
             ]},
+  {mod, {lz4b_app,[]}},
   {registered, []},
   {applications, [
                   kernel,
@@ -14,5 +16,5 @@
   {licenses, ["GPLv3"]},
   {links, [{"Gitlab", "https://gitlab.com/qzhuyan/lz4b"}]},
   {files, ["c_src","src","Makefile","ebin","rebar*","priv","LICENSE"]},
-  {env, []}
+  {env, [{dirty_threshold, 0}]}
  ]}.

@@ -4,3 +4,6 @@ c_src/v*
 _build/
 .eunit/
 .rebar/
+.ccls-cache/
+.els_cache/
+test_data/*.out

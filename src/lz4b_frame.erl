@@ -15,7 +15,12 @@ decompress(Bin) ->
 -spec decompress(binary(), Options :: integer() | #decompress_options{})
                 -> {ok, binary()} | error_ret().
 decompress(Bin, Opts) ->
-    lz4b_nif:decompress_frame(Bin, Opts).
+    case above_threshold(byte_size(Bin)) of
+        true ->
+            lz4b_nif:dirty_decompress_frame(Bin, Opts);
+        _ ->
+            lz4b_nif:decompress_frame(Bin, Opts)
+    end.
 
 -spec compress(binary()) -> {ok, binary()} | error_ret().
 compress(Bin) ->
@@ -24,7 +29,12 @@ compress(Bin) ->
 -spec compress(binary(), CompressOpts :: #compress_options{} | 0)
               -> {ok, binary()} | error_ret().
 compress(Bin, Opts) ->
-    lz4b_nif:compress_frame(Bin, Opts).
+    case above_threshold(byte_size(Bin)) of
+        true ->
+            lz4b_nif:dirty_compress_frame(Bin, Opts);
+        _ ->
+            lz4b_nif:compress_frame(Bin, Opts)
+    end.
 
 -spec read_frame_info(binary()) -> #frame_info{} | error_ret().
 read_frame_info(Bin) ->
@@ -62,6 +72,22 @@ do_incremental_decompress(ReaderFun, WriterFun, Readsize, Ref, LeftBin)->
                     do_incremental_decompress(ReaderFun, WriterFun, Readsize, NewRef, Left)
             end
     end.
+
+-spec above_threshold(integer()) -> boolean().
+
+-ifdef(OTP_RELEASE).
+above_threshold(Current) ->
+    case persistent_term:get({lz4b, dirty_threshold}, 0) of
+        0 -> %% disabled
+            false;
+        Threshold when Current > Threshold ->
+            true;
+        _ ->
+            false
+    end.
+-else.
+above_threshold(_) -> false.
+-endif.
 
 %%% EUNIT
 
