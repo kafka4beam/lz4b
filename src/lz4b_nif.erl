@@ -206,7 +206,7 @@ dirty_compress_perf_parallel_test() ->
 -ifdef(OTP_RELEASE).
 dirty_threshold_compress_perf_parallel_test() ->
     application:set_env(lz4b, dirty_threshold, 1024),
-    lz4b_app:reload_config(),
+    lz4b_config:reload_config(),
     Work = erlang:system_info(dirty_cpu_schedulers_online)
         + erlang:system_info(schedulers_online),
     Count = Work * 10,
@@ -218,7 +218,7 @@ dirty_threshold_compress_perf_parallel_test() ->
     wait_for(Workers),
     End = os:timestamp(),
     application:set_env(lz4b, dirty_threshold, 0),
-    lz4b_app:reload_config(),
+    lz4b_config:reload_config(),
     ?debugFmt("each compress with dirty threshold takes ~p us", [timer:now_diff(End, Start) / Count]).
 -endif.
 
