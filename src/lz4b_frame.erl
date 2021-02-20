@@ -15,10 +15,8 @@ init() ->
     lz4b_config:reload_config().
 
 -spec decompress(iodata()) -> {ok, binary()} | lz4b_nif:error_ret().
-decompress(IoData) when not is_binary(IoData) ->
-    compress(iolist_to_binary(IoData));
-decompress(Bin) ->
-    decompress(Bin, 0).
+decompress(IoData) ->
+    decompress(IoData, 0).
 
 -spec decompress(iodata(), Options :: integer() | #decompress_options{})
                 -> {ok, binary()} | error_ret().
@@ -32,12 +30,14 @@ decompress(Bin, Opts) ->
             lz4b_nif:decompress_frame(Bin, Opts)
     end.
 
--spec compress(binary()) -> {ok, binary()} | error_ret().
-compress(Bin) ->
-    compress(Bin, 0).
+-spec compress(iodata()) -> {ok, binary()} | error_ret().
+compress(IoData) ->
+    compress(IoData, 0).
 
--spec compress(binary(), CompressOpts :: #compress_options{} | 0)
+-spec compress(iodata(), CompressOpts :: #compress_options{} | 0)
               -> {ok, binary()} | error_ret().
+compress(IoData, Opts) when not is_binary(IoData) ->
+    compress(iolist_to_binary(IoData), Opts);
 compress(Bin, Opts) ->
     case above_threshold(byte_size(Bin)) of
         true ->
