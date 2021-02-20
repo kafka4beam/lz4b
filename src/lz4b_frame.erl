@@ -6,7 +6,13 @@
          incremental_decompress/3,
          read_frame_info/1
         ]).
+
+-on_load(init/0).
+
 -type error_ret() :: lz4b_nif:error_ret().
+
+init() ->
+    lz4b_config:reload_config().
 
 -spec decompress(binary()) -> {ok, binary()} | lz4b_nif:error_ret().
 decompress(Bin) ->

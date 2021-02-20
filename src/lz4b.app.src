@@ -5,9 +5,8 @@
   {modules, [
              lz4b_frame,
              lz4b_nif,
-             lz4b_app
+             lz4b_config
             ]},
-  {mod, {lz4b_app,[]}},
   {registered, []},
   {applications, [
                   kernel,
