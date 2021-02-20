@@ -397,6 +397,8 @@ static ErlNifFunc nif_funcs[] =
   {
     {"compress_frame",   2, frame_compress},
     {"decompress_frame", 2, frame_decompress},
+    {"dirty_compress_frame", 2, frame_compress, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"dirty_decompress_frame", 2, frame_decompress, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"decompress_frame_iter", 2, frame_decompress_iter},
     {"frame_info", 1, frame_info},
     {"read_frame_info", 1, read_frame_info}

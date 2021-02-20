@@ -6,6 +6,8 @@
 -export([compress_frame/2,
          decompress_frame/2,
          decompress_frame_iter/2,
+         dirty_compress_frame/2,
+         dirty_decompress_frame/2,
          frame_info/1,
          read_frame_info/1
         ]).
@@ -30,9 +32,18 @@ init() ->
 compress_frame(_Binary, _Opts)  ->
     erlang:nif_error(nif_library_not_loaded).
 
+-spec dirty_compress_frame(binary(), compress_opts()) -> {ok, binary()} | error_ret().
+dirty_compress_frame(_Binary, _Opts)  ->
+    erlang:nif_error(nif_library_not_loaded).
+
 -spec decompress_frame(binary(), decompress_opts()) ->
                               {ok, binary()} | error_ret().
 decompress_frame(_Binary, _Opts) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+-spec dirty_decompress_frame(binary(), decompress_opts()) ->
+                              {ok, binary()} | error_ret().
+dirty_decompress_frame(_Binary, _Opts) ->
     erlang:nif_error(nif_library_not_loaded).
 
 decompress_frame_iter(_Ref, _Bin) ->
@@ -95,13 +106,19 @@ compress_with_check_sum_test() ->
     ?assertEqual(Compressed, Bin).
 
 compress_and_decompress_test() ->
+    compress_and_decompress_test_helper(fun compress_frame/2, fun decompress_frame/2).
+
+dirty_compress_and_decompress_test() ->
+    compress_and_decompress_test_helper(fun dirty_compress_frame/2, fun dirty_decompress_frame/2).
+
+compress_and_decompress_test_helper(CompressFun, DecompressFun) ->
     Data = list_to_binary(lists:flatten(lists:duplicate(1000,"abcdefg"))),
-    {ok, Compressed} = compress_frame(Data, 0),
+    {ok, Compressed} = CompressFun(Data, 0),
     %%?debugFmt("!!!before: ~p  after compressed : ~p~n",[byte_size(Data), byte_size(Compressed)]),
     timer:sleep(1000),
-    Res = decompress_frame(Compressed, 0),
+    Res = DecompressFun(Compressed, 0),
     %%?debugFmt("Expected:~n ~p ~nGet:~n ~p~n", [Data, Res]),
-    ?assertEqual({ok,Data}, Res).
+    ?assertEqual({ok, Data}, Res).
 
 compress_and_decompress_with_opts_test() ->
     Data = list_to_binary(lists:flatten(lists:duplicate(1000,"abcdefg"))),
@@ -143,12 +160,67 @@ decompress_file_with_content_size_test()->
     ?assertEqual(Expected, Result).
 
 compress_perf_test() ->
-    Count = 10,
+    Work = erlang:system_info(dirty_cpu_schedulers_online)
+        + erlang:system_info(schedulers_online),
+    Count = Work * 10,
     {ok, Plain} = file:read_file("test_data/bible.txt"),
     Start = os:timestamp(),
     [compress_frame(Plain, 0) || _ <- lists:seq(1, Count)],
     End = os:timestamp(),
     ?debugFmt("each compress takes ~p us", [timer:now_diff(End, Start) / Count]).
+
+compress_perf_parallel_test() ->
+    Work = erlang:system_info(dirty_cpu_schedulers_online)
+        + erlang:system_info(schedulers_online),
+    Count = Work * 10,
+    {ok, Plain} = file:read_file("test_data/bible.txt"),
+    Start = os:timestamp(),
+    Owner = self(),
+    Workers = [spawn(fun() -> compress_frame(Plain, 0), Owner ! {self(), done} end)
+               || _ <- lists:seq(1, Count)],
+    wait_for(Workers),
+    End = os:timestamp(),
+    ?debugFmt("each parallel compress takes ~p us", [timer:now_diff(End, Start) / Count]).
+
+dirty_compress_perf_test() ->
+    Count = 10,
+    {ok, Plain} = file:read_file("test_data/bible.txt"),
+    Start = os:timestamp(),
+    [compress_frame(Plain, 0) || _ <- lists:seq(1, Count)],
+    End = os:timestamp(),
+    ?debugFmt("each dirty compress takes ~p us", [timer:now_diff(End, Start) / Count]).
+
+dirty_compress_perf_parallel_test() ->
+    Work = erlang:system_info(dirty_cpu_schedulers_online)
+        + erlang:system_info(schedulers_online),
+    Count = Work * 10,
+    {ok, Plain} = file:read_file("test_data/bible.txt"),
+    Start = os:timestamp(),
+    Owner = self(),
+    Workers = [spawn(fun() -> dirty_compress_frame(Plain, 0), Owner ! {self(), done} end)
+               || _ <- lists:seq(1, Count)],
+    wait_for(Workers),
+    End = os:timestamp(),
+    ?debugFmt("each parallel dirty compress takes ~p us", [timer:now_diff(End, Start) / Count]).
+
+-ifdef(OTP_RELEASE).
+dirty_threshold_compress_perf_parallel_test() ->
+    application:set_env(lz4b, dirty_threshold, 1024),
+    lz4b_app:reload_config(),
+    Work = erlang:system_info(dirty_cpu_schedulers_online)
+        + erlang:system_info(schedulers_online),
+    Count = Work * 10,
+    {ok, Plain} = file:read_file("test_data/bible.txt"),
+    Start = os:timestamp(),
+    Owner = self(),
+    Workers = [spawn(fun() -> compress_frame(Plain, 0), Owner ! {self(), done} end)
+               || _ <- lists:seq(1, Count)],
+    wait_for(Workers),
+    End = os:timestamp(),
+    application:set_env(lz4b, dirty_threshold, 0),
+    lz4b_app:reload_config(),
+    ?debugFmt("each compress with dirty threshold takes ~p us", [timer:now_diff(End, Start) / Count]).
+-endif.
 
 decompress_with_bad_opts_test() ->
     {ok, Compressed} = file:read_file("test_data/large.lz4"),
@@ -235,8 +307,15 @@ do_mem_leak(10 = Cnt, F) -> %% take sample
     put(rss10, get_rss_kb()),
     do_mem_leak(Cnt-1, F);
 do_mem_leak(X, F) ->
-    F(),
-    do_mem_leak(X-1, F).
+    case os:type() of
+        {unix, darwin} ->
+            skip;
+        {win32, darwin} ->
+            skip;
+        _ ->
+            F(),
+            do_mem_leak(X-1, F)
+    end.
 
 get_rss_kb() ->
     [$\t | Out] = os:cmd("cat /proc/self/status  |grep -i vmrss | cut -f2 -d:"),
@@ -271,5 +350,13 @@ decompress_part_helper(RawData, Offset, {Ref, Bin1, CntDone, CntConsumed, Sugges
                         binary:part(RawData, Loc, ?Fsize)
                 end,
     decompress_part_helper(RawData, Loc, decompress_frame_iter(Ref, NextBlock), << Res/binary, Bin1/binary>>).
+
+wait_for([]) ->
+    ok;
+wait_for(Workers) ->
+    receive
+        {W, done} ->
+            wait_for(Workers -- [W])
+    end.
 
 -endif.
