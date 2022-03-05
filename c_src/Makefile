@@ -66,8 +66,8 @@ $(C_SRC_OUTPUT): $(LZ4_SRC) $(OBJECTS)
 	$(link_verbose) $(CC) $(LZ4_OBJS) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $(C_SRC_OUTPUT)
 
 $(LZ4_SRC):
-	wget -N $(LZ4_SRC_PACKAGE_LINK)
-	tar zxvf v$(LZ4_VSN).tar.gz
+	curl -L -f -o $(LZ4_SRC_TAR) $(LZ4_SRC_PACKAGE_LINK)
+	tar zxf $(LZ4_SRC_TAR)
 	$(MAKE) CFLAGS='-O3 -fPIC -save-temps' -C $(LZ4_SRC) BUILD_STATIC=no
 
 %.o: %.c
