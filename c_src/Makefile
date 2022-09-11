@@ -24,7 +24,7 @@ LZ4_OBJS := $(LZ4_SRC)/lib/*.o
 
 UNAME_SYS := $(shell uname -s)
 ifeq ($(UNAME_SYS), Darwin)
-	SYS_ARCH := $(shell arch)
+	SYS_ARCH := $(shell uname -m)
 	CC ?= cc
 	CFLAGS ?= -O3 -std=c99 -arch $(SYS_ARCH) -finline-functions -Wall -Wmissing-prototypes
 	CXXFLAGS ?= -O3 -arch $(SYS_ARCH) -finline-functions -Wall
