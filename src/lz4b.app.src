@@ -14,6 +14,13 @@
                  ]},
   {licenses, ["GPLv3"]},
   {links, [{"Gitlab", "https://gitlab.com/qzhuyan/lz4b"}]},
-  {files, ["c_src","src","Makefile","ebin","rebar*","priv","LICENSE"]},
+  {files, ["c_src/lz4b.c",
+           "c_src/lz4b.h",
+           "c_src/Makefile",
+           "c_src/CMakeLists.txt"
+            "src",
+            "Makefile",
+            "rebar.config",
+            "LICENSE"]},
   {env, [{dirty_threshold, 0}]}
  ]}.

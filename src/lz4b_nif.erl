@@ -25,8 +25,13 @@
 -type compress_opts() :: default_opt() | #compress_options{}.
 
 init() ->
-    Niflib = filename:join(filename:dirname(code:which(?MODULE)), "lz4b_nif"),
-    ok = erlang:load_nif(Niflib, 0).
+    Niflib = lib_path(),
+    try
+        ok = erlang:load_nif(Niflib, 0)
+    catch
+        C : E ->
+            erlang:error({failed_to_load_nif, C, E, Niflib})
+    end.
 
 -spec compress_frame(binary(), compress_opts()) -> {ok, binary()} | error_ret().
 compress_frame(_Binary, _Opts)  ->
@@ -55,6 +60,28 @@ frame_info(FI) when is_record(FI, frame_info)->
 -spec read_frame_info(binary()) -> #frame_info{} | error_ret().
 read_frame_info(_Bin) ->
     erlang:nif_error(nif_library_not_loaded).
+
+-spec lib_path() -> string().
+lib_path() ->
+  filename:join([get_nif_bin_dir(), "lz4b_nif"]).
+
+get_nif_bin_dir() ->
+  {ok, Cwd} = file:get_cwd(),
+  get_nif_bin_dir(
+    [ code:priv_dir(lz4b)
+    , filename:join([Cwd, "..", "priv"])
+    , filename:join(Cwd, "priv")
+    , os:getenv("NIF_BIN_DIR")
+    ]).
+
+get_nif_bin_dir([]) -> erlang:error(lz4b_nif_not_found);
+get_nif_bin_dir([false | Rest]) -> get_nif_bin_dir(Rest);
+get_nif_bin_dir([Dir | Rest]) ->
+  case filelib:wildcard(filename:join([Dir, "lz4b_nif*"])) of
+    [] -> get_nif_bin_dir(Rest);
+    [_ | _] -> Dir
+  end.
+
 
 %%% EUNIT
 
