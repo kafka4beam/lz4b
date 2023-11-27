@@ -69,7 +69,7 @@ $(C_SRC_OUTPUT): $(LZ4_SRC) $(OBJECTS)
 $(LZ4_SRC):
 	curl -L -f -o $(LZ4_SRC_TAR) $(LZ4_SRC_PACKAGE_LINK)
 	tar zxf $(LZ4_SRC_TAR)
-	$(MAKE) CFLAGS='-O3 -fPIC -save-temps' -C $(LZ4_SRC) BUILD_STATIC=no
+	$(MAKE) CFLAGS='-O3 -fPIC' -C $(LZ4_SRC) BUILD_STATIC=no
 
 %.o: %.c
 	$(COMPILE_C) $(OUTPUT_OPTION) $<
