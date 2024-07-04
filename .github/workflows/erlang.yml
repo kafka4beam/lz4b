@@ -12,13 +12,14 @@ jobs:
 
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        otp: [26.1.1, 25.3.2, 24.3.4, 23.2.5, 22.3.4.16, 21.3.8.21, 20.3.8.26]
+        otp: [26.1.1, 25.3.2, 24.3.4, 23.2.5, 22.3.4.16]
     container:
       image: erlang:${{ matrix.otp }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Compile
       run: rebar3 compile
     - name: Run tests
