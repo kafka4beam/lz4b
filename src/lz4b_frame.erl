@@ -1,6 +1,7 @@
 -module(lz4b_frame).
 -include("lz4b_frame.hrl").
 -export([compress/1,
+         compress/2,
          decompress/1,
          decompress/2,
          incremental_decompress/3,
