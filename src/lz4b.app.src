@@ -12,7 +12,7 @@
                   kernel,
                   stdlib
                  ]},
-  {licenses, ["GPLv3"]},
+  {licenses, ["GPL-3.0-or-later"]},
   {links, [{"Gitlab", "https://gitlab.com/qzhuyan/lz4b"}]},
   {files, ["c_src/lz4b.c",
            "c_src/lz4b.h",
