@@ -29,12 +29,7 @@ static ERL_NIF_TERM frame_compress(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return ERROR_ATOM("bad_preference");
   }
 
-  if (bin.size < 4096)
-    {
-      cap = 4096;
-    } else {
-    cap = LZ4F_compressFrameBound((size_t) bin.size, pref);
-  }
+  cap = LZ4F_compressFrameBound((size_t) bin.size, pref);
 
   if (!enif_alloc_binary(cap, &output)) {
     free(pref);
@@ -359,9 +354,9 @@ int parse_edecompressOption(ErlNifEnv* env,
   enif_get_uint(env, *(opts+1), (unsigned int *) stepsize);
   enif_get_uint(env, *(opts+2), (unsigned int *) buffgrow_size);
   enif_get_uint(env, *(opts+3), &(dccopt -> stableDst));
-  enif_get_uint(env, *(opts+4), &(dccopt -> reserved[0]));
-  enif_get_uint(env, *(opts+5), &(dccopt -> reserved[1]));
-  enif_get_uint(env, *(opts+6), &(dccopt -> reserved[2]));
+  enif_get_uint(env, *(opts+4), &(dccopt -> skipChecksums));
+  enif_get_uint(env, *(opts+5), &(dccopt -> reserved1));
+  enif_get_uint(env, *(opts+6), &(dccopt -> reserved0));
   return 1;
 }
 
