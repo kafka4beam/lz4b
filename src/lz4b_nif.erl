@@ -186,15 +186,17 @@ decompress_file_with_content_size_test()->
     {ok, Result} = decompress_frame(Bin, 0),
     ?assertEqual(Expected, Result).
 
-compress_perf_test() ->
-    Work = erlang:system_info(dirty_cpu_schedulers_online)
-        + erlang:system_info(schedulers_online),
-    Count = Work * 10,
-    {ok, Plain} = file:read_file("test_data/bible.txt"),
-    Start = os:timestamp(),
-    [compress_frame(Plain, 0) || _ <- lists:seq(1, Count)],
-    End = os:timestamp(),
-    ?debugFmt("each compress takes ~p us", [timer:now_diff(End, Start) / Count]).
+compress_perf_test_() ->
+    {timeout, 10000, fun() ->
+        Work = erlang:system_info(dirty_cpu_schedulers_online)
+            + erlang:system_info(schedulers_online),
+        Count = Work * 10,
+        {ok, Plain} = file:read_file("test_data/bible.txt"),
+        Start = os:timestamp(),
+        [compress_frame(Plain, 0) || _ <- lists:seq(1, Count)],
+        End = os:timestamp(),
+        ?debugFmt("each compress takes ~p us", [timer:now_diff(End, Start) / Count])
+    end}.
 
 compress_perf_parallel_test() ->
     Work = erlang:system_info(dirty_cpu_schedulers_online)
