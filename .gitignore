@@ -7,3 +7,4 @@ _build/
 .ccls-cache/
 .els_cache/
 test_data/*.out
+priv/*.so
