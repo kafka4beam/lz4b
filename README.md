@@ -32,17 +32,17 @@ application env:
 
 ## Copyright and License
 
-Copyright (C) 2018  Zhuwei Yang
+Copyright (C) 2018  Zhuwei Yang and contributors
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+Licensed under the Apache License, Version 2.0 ([LICENSE](LICENSE) or
+<http://www.apache.org/licenses/LICENSE-2.0>).
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+The bundled [lz4](https://github.com/lz4/lz4) library sources are downloaded at
+build time; only the `lib/` part of lz4 is compiled and linked into the NIF,
+which is licensed under the BSD 2-Clause license (lz4's GPL-2.0-or-later
+license applies only to its `programs/`, `tests/` and `examples/` directories,
+none of which are used by this project).
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in this project by you, as defined in the Apache-2.0 license,
+shall be licensed as above, without any additional terms or conditions.
