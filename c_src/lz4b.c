@@ -14,12 +14,14 @@ static ERL_NIF_TERM frame_compress(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return ERROR_ATOM("inspect_input_fail");
 
   if (enif_is_tuple(env, argv[1])) {
-      pref = malloc(sizeof(LZ4F_preferences_t));
+      pref = calloc(1, sizeof(LZ4F_preferences_t));
       if ( ! pref ) {
         return ERROR_ATOM("enomem");
       }
-      if (parse_epreference(env, pref, &argv[1]) != 1 )
+      if (parse_epreference(env, pref, &argv[1]) != 1 ) {
+        free(pref);
         return ERROR_ATOM("bad_preference");
+      }
 
   } else if(enif_is_number(env, argv[1]) && enif_get_int(env, argv[1], &opt)
             && opt == 0) {
@@ -143,7 +145,8 @@ static ERL_NIF_TERM frame_decompress(ErlNifEnv* env, int argc, const ERL_NIF_TER
     //printf("cnt_consumed: %lu, cnt_produced: %lu\n", cnt_consumed, cnt_produced);
 
     if(apiret != 0) {
-      if ( (dest.size - cnt_produced) < size_expand/3 ) {
+      if (dest.size == cnt_produced ||
+          (dest.size - cnt_produced) < size_expand/3) {
         if (cnt_produced > SIZE_MAX - size_expand ||
             !enif_realloc_binary(&dest, cnt_produced + size_expand)) {
           error_name = "nomem";
@@ -267,33 +270,44 @@ static ERL_NIF_TERM eframeinfo(ErlNifEnv* env, const LZ4F_frameInfo_t* frameinfo
 int parse_eframeinfo(ErlNifEnv* env, LZ4F_frameInfo_t *frameinfop, const ERL_NIF_TERM * eframeinfo) {
   const ERL_NIF_TERM * opts ; // see #frame_info in src/lz4b_frame.hrl
   int arity = 0;
+  unsigned int block_size, block_mode, content_checksum, frame_type, dict_id, block_checksum;
+  ErlNifUInt64 content_size;
 
   //parse opts)
   if (! enif_get_tuple(env, *eframeinfo, &arity, &opts)) {
     return -1; //not a tuple
   }
 
-  if (0 == arity) {
+  if (arity != 8 ||
+      !enif_is_identical(opts[0], enif_make_atom(env, "frame_info"))) {
     return -2;
   }
 
-  enif_get_uint(env, *(opts+1), &(frameinfop -> blockSizeID));
-  enif_get_uint(env, *(opts+2), &(frameinfop -> blockMode));
-  enif_get_uint(env, *(opts+3), &(frameinfop -> contentChecksumFlag));
-  enif_get_uint(env, *(opts+4), &(frameinfop -> frameType));
-  ErlNifUInt64 contentSize = 0 ;
-  enif_get_uint64(env, *(opts+5), &contentSize);
-  frameinfop -> contentSize = contentSize ;
-  enif_get_uint(env, *(opts+6), &(frameinfop -> dictID));
-  enif_get_uint(env, *(opts+7), &(frameinfop -> blockChecksumFlag));
+  if (!enif_get_uint(env, opts[1], &block_size) ||
+      !enif_get_uint(env, opts[2], &block_mode) ||
+      !enif_get_uint(env, opts[3], &content_checksum) ||
+      !enif_get_uint(env, opts[4], &frame_type) ||
+      !enif_get_uint64(env, opts[5], &content_size) ||
+      !enif_get_uint(env, opts[6], &dict_id) ||
+      !enif_get_uint(env, opts[7], &block_checksum)) {
+    return -3;
+  }
+
+  frameinfop->blockSizeID = block_size;
+  frameinfop->blockMode = block_mode;
+  frameinfop->contentChecksumFlag = content_checksum;
+  frameinfop->frameType = frame_type;
+  frameinfop->contentSize = content_size;
+  frameinfop->dictID = dict_id;
+  frameinfop->blockChecksumFlag = block_checksum;
   return 1;
 }
 
 static ERL_NIF_TERM frame_info(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    LZ4F_frameInfo_t fi;
+    LZ4F_frameInfo_t fi = {0};
 
-    if (!parse_eframeinfo(env, &fi, &argv[0])) {
-      return ERROR_ATOM("nomem");
+    if (parse_eframeinfo(env, &fi, &argv[0]) != 1) {
+      return ERROR_ATOM("badarg");
     }
 
     return eframeinfo(env, &fi);
@@ -338,22 +352,35 @@ int parse_edecompressOption(ErlNifEnv* env,
                             const ERL_NIF_TERM * eterm) {
   const ERL_NIF_TERM * opts;
   int arity = 0;
+  unsigned int parsed_stepsize, parsed_buffgrow_size;
+  unsigned int stable_dst, skip_checksums, reserved1, reserved0;
 
   //parse opts
   if (! enif_get_tuple(env, *eterm, &arity, &opts)) {
     return -1;
   }
 
-  // todo hardcode arity
-  if (0 == arity) {
+  if (arity != 7 ||
+      !enif_is_identical(opts[0], enif_make_atom(env, "decompress_options"))) {
     return -2;
   }
-  enif_get_uint(env, *(opts+1), (unsigned int *) stepsize);
-  enif_get_uint(env, *(opts+2), (unsigned int *) buffgrow_size);
-  enif_get_uint(env, *(opts+3), &(dccopt -> stableDst));
-  enif_get_uint(env, *(opts+4), &(dccopt -> skipChecksums));
-  enif_get_uint(env, *(opts+5), &(dccopt -> reserved1));
-  enif_get_uint(env, *(opts+6), &(dccopt -> reserved0));
+
+  if (!enif_get_uint(env, opts[1], &parsed_stepsize) ||
+      !enif_get_uint(env, opts[2], &parsed_buffgrow_size) ||
+      !enif_get_uint(env, opts[3], &stable_dst) ||
+      !enif_get_uint(env, opts[4], &skip_checksums) ||
+      !enif_get_uint(env, opts[5], &reserved1) ||
+      !enif_get_uint(env, opts[6], &reserved0) ||
+      parsed_buffgrow_size == 0) {
+    return -3;
+  }
+
+  *stepsize = parsed_stepsize;
+  *buffgrow_size = parsed_buffgrow_size;
+  dccopt->stableDst = stable_dst;
+  dccopt->skipChecksums = skip_checksums;
+  dccopt->reserved1 = reserved1;
+  dccopt->reserved0 = reserved0;
   return 1;
 }
 
@@ -362,26 +389,33 @@ int parse_epreference(ErlNifEnv* env, LZ4F_preferences_t * preferences,
                       const ERL_NIF_TERM * epreference) {
   const ERL_NIF_TERM * opts;
   int arity = 0;
+  int compression_level;
+  unsigned int auto_flush, reserved0, reserved1, reserved2;
 
   //parse opts)
   if (! enif_get_tuple(env, *epreference, &arity, &opts)) {
     return -1;
   }
 
-  // todo hardcode arity
-  if (0 == arity) {
+  if (arity != 7 ||
+      !enif_is_identical(opts[0], enif_make_atom(env, "compress_options"))) {
     return -2;
   }
 
-  if (!parse_eframeinfo(env, &(preferences->frameInfo), opts+1))
-    {
-      return -3;
-    }
-  enif_get_int( env, *(opts+2), &(preferences -> compressionLevel));
-  enif_get_uint(env, *(opts+3), &(preferences -> autoFlush));
-  enif_get_uint(env, *(opts+4), &(preferences -> reserved[0]));
-  enif_get_uint(env, *(opts+5), &(preferences -> reserved[1]));
-  enif_get_uint(env, *(opts+6), &(preferences -> reserved[2]));
+  if (parse_eframeinfo(env, &preferences->frameInfo, &opts[1]) != 1 ||
+      !enif_get_int(env, opts[2], &compression_level) ||
+      !enif_get_uint(env, opts[3], &auto_flush) ||
+      !enif_get_uint(env, opts[4], &reserved0) ||
+      !enif_get_uint(env, opts[5], &reserved1) ||
+      !enif_get_uint(env, opts[6], &reserved2)) {
+    return -3;
+  }
+
+  preferences->compressionLevel = compression_level;
+  preferences->autoFlush = auto_flush;
+  preferences->reserved[0] = reserved0;
+  preferences->reserved[1] = reserved1;
+  preferences->reserved[2] = reserved2;
   return 1;
 }
 
