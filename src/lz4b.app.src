@@ -12,7 +12,7 @@
                   kernel,
                   stdlib
                  ]},
-  {licenses, ["GPL-3.0-or-later"]},
+  {licenses, ["MIT"]},
   {links, [{"GitHub", "https://github.com/kafka4beam/lz4b"}]},
   {files, ["include",
            "c_src/lz4b.c",
