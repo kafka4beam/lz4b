@@ -268,8 +268,8 @@ decompress_part_test() ->
     ?assertEqual(Expected, R).
 
 decompress_badframe_test_()->
-    [?_assertEqual({error, 'ERROR_frameType_unknown'}, decompress_frame(<<0>>, 0)),
-     ?_assertEqual({error, 'ERROR_frameType_unknown'}, decompress_frame(<<1,2,3,4>>, 0))
+    [?_assertEqual({error, 'ERROR_frameHeader_incomplete'}, decompress_frame(<<0>>, 0)),
+     ?_assertEqual({error, 'ERROR_frameHeader_incomplete'}, decompress_frame(<<1,2,3,4>>, 0))
     ].
 
 default_frame_info_test() ->
@@ -279,6 +279,35 @@ frame_info_test() ->
     ?assertEqual(#frame_info{blockMode=1,contentChksumFlag = 1} ,
                  frame_info(#frame_info{blockMode=1,contentChksumFlag = 1})).
 
+frame_info_badarg_test_() ->
+    WrongFieldType = setelement(2, #frame_info{}, not_an_integer),
+    [?_assertEqual({error, badarg}, frame_info(not_a_tuple)),
+     ?_assertEqual({error, badarg}, frame_info({frame_info})),
+     ?_assertEqual({error, badarg}, frame_info(WrongFieldType))
+    ].
+
+decompress_small_buffer_growth_test() ->
+    Data = binary:copy(<<"hello">>, 100),
+    {ok, Compressed} = compress_frame(Data, 0),
+    lists:foreach(
+        fun(GrowSize) ->
+            Opts = #decompress_options{buffgrow_size = GrowSize},
+            ?assertEqual({ok, Data}, decompress_frame(Compressed, Opts))
+        end,
+        [1, 2]
+    ).
+
+decompress_bad_options_test_() ->
+    {ok, Compressed} = compress_frame(<<"hello">>, 0),
+    WrongFieldType = setelement(3, #decompress_options{}, not_an_integer),
+    [?_assertEqual({error, badopts}, decompress_frame(Compressed, {decompress_options})),
+     ?_assertEqual({error, badopts}, decompress_frame(Compressed, WrongFieldType)),
+     ?_assertEqual(
+         {error, badopts},
+         decompress_frame(Compressed, #decompress_options{buffgrow_size = 0})
+     )
+    ].
+
 bad_preference_test() ->
     ?assertEqual({error, bad_preference} ,
                  compress_frame(<<"hello world">>, a)).
@@ -286,6 +315,14 @@ bad_preference_test() ->
 bad_preference_2_test() ->
     ?assertEqual({error, bad_preference} ,
                  compress_frame(<<"hello world">>, [])).
+
+bad_preference_tuple_test_() ->
+    WrongFrameInfo = setelement(2, #compress_options{}, not_frame_info),
+    WrongFieldType = setelement(3, #compress_options{}, not_an_integer),
+    [?_assertEqual({error, bad_preference}, compress_frame(<<"hello">>, {compress_options})),
+     ?_assertEqual({error, bad_preference}, compress_frame(<<"hello">>, WrongFrameInfo)),
+     ?_assertEqual({error, bad_preference}, compress_frame(<<"hello">>, WrongFieldType))
+    ].
 
 bad_compress_3_test() ->
     ?assertEqual({error, inspect_input_fail} ,
