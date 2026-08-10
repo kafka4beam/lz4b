@@ -268,8 +268,8 @@ decompress_part_test() ->
     ?assertEqual(Expected, R).
 
 decompress_badframe_test_()->
-    [?_assertEqual({error, 'ERROR_frameType_unknown'}, decompress_frame(<<0>>, 0)),
-     ?_assertEqual({error, 'ERROR_frameType_unknown'}, decompress_frame(<<1,2,3,4>>, 0))
+    [?_assertEqual({error, 'ERROR_frameHeader_incomplete'}, decompress_frame(<<0>>, 0)),
+     ?_assertEqual({error, 'ERROR_frameHeader_incomplete'}, decompress_frame(<<1,2,3,4>>, 0))
     ].
 
 default_frame_info_test() ->

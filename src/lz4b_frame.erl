@@ -110,6 +110,32 @@ decompress_test() ->
      {ok, Bin} = file:read_file("test_data/helloworld.lz4"),
      ?assertEqual({ok, << "helloworld\n" >>}, decompress(Bin)).
 
+decompress_truncated_frame_test() ->
+    Data = binary:copy(<<"hello">>, 1000),
+    {ok, Frame} = compress(Data),
+    Truncated = binary:part(Frame, 0, byte_size(Frame) - 1),
+    ?assertEqual({error, incomplete_frame}, decompress(Truncated)).
+
+decompress_all_truncated_frames_test() ->
+    {ok, Frame} = compress(binary:copy(<<"hello">>, 1000)),
+    lists:foreach(
+        fun(Size) ->
+            Truncated = binary:part(Frame, 0, Size),
+            ?assertMatch({error, _}, decompress(Truncated))
+        end,
+        lists:seq(0, byte_size(Frame) - 1)
+    ).
+
+decompress_corrupted_checksum_test() ->
+    {ok, Frame} = file:read_file("test_data/helloworld_cksum.lz4"),
+    PrefixSize = byte_size(Frame) - 1,
+    <<Prefix:PrefixSize/binary, LastByte>> = Frame,
+    Corrupted = <<Prefix/binary, (LastByte bxor 1)>>,
+    ?assertEqual({error, 'ERROR_contentChecksum_invalid'}, decompress(Corrupted)).
+
+read_incomplete_frame_info_test() ->
+    ?assertEqual({error, 'ERROR_frameHeader_incomplete'}, read_frame_info(<<0>>)).
+
 compress_and_decompress_test() ->
     Data = <<"abcdefg">>,
     {ok, Compressed} = compress(Data),

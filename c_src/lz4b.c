@@ -57,10 +57,14 @@ static ERL_NIF_TERM frame_decompress(ErlNifEnv* env, int argc, const ERL_NIF_TER
   ErlNifBinary bin, dest;
   ERL_NIF_TERM result;
 
-  LZ4F_dctx * dctx;
+  LZ4F_dctx * dctx = NULL;
   LZ4F_decompressOptions_t * dccopt = NULL;
-  size_t size_dest = 0, size_src = LZ4F_HEADER_SIZE_MAX, step_size = 0, size_expand = 1024;
+  LZ4F_frameInfo_t fi;
+  size_t size_dest = 0, size_src = 0, step_size = 0, size_expand = 1024;
   size_t cnt_consumed = 0, cnt_produced = 0;
+  size_t apiret;
+  const char * error_name = NULL;
+  int dest_allocated = 0;
   if ( ! enif_inspect_binary(env, argv[0], &bin) )
     return ERROR_ATOM("inspect_binary_fail");
 
@@ -68,14 +72,19 @@ static ERL_NIF_TERM frame_decompress(ErlNifEnv* env, int argc, const ERL_NIF_TER
     if( ! enif_get_uint(env, argv[1], (unsigned int *) &step_size))
       return ERROR_ATOM("bad_yield_size");
   } else if(enif_is_tuple(env, argv[1])) {
-    //todo error handling
-    dccopt = malloc(sizeof(LZ4F_decompressOptions_t));
-    parse_edecompressOption(env, &step_size, &size_expand, dccopt, &argv[1]);
+    dccopt = calloc(1, sizeof(LZ4F_decompressOptions_t));
+    if (!dccopt) {
+      return ERROR_ATOM("nomem");
+    }
+    if (parse_edecompressOption(env, &step_size, &size_expand, dccopt, &argv[1]) != 1) {
+      free(dccopt);
+      return ERROR_ATOM("badopts");
+    }
   } else {
     return ERROR_ATOM("badopts");
   }
 
-  int apiret = LZ4F_createDecompressionContext(&dctx, LZ4F_VERSION);
+  apiret = LZ4F_createDecompressionContext(&dctx, LZ4F_VERSION);
 
   if (LZ4F_isError(apiret))
     {
@@ -88,23 +97,20 @@ static ERL_NIF_TERM frame_decompress(ErlNifEnv* env, int argc, const ERL_NIF_TER
   }
 
   // try get original size from frame info
-  LZ4F_frameInfo_t * fi;
-  fi = malloc(sizeof(LZ4F_frameInfo_t));
-  if ( ! fi ) {
-    return ERROR_ATOM("nomem");
-  }
-
-  apiret = LZ4F_getFrameInfo(dctx, fi, bin.data, &size_src);
+  size_src = bin.size < LZ4F_HEADER_SIZE_MAX ? bin.size : LZ4F_HEADER_SIZE_MAX;
+  apiret = LZ4F_getFrameInfo(dctx, &fi, bin.data, &size_src);
 
   if (LZ4F_isError(apiret)) {
+    error_name = LZ4F_getErrorName(apiret);
+    LZ4F_freeDecompressionContext(dctx);
     free(dccopt);
-    return ERROR_ATOM(LZ4F_getErrorName(apiret));
+    return ERROR_ATOM(error_name);
   }
 
   cnt_consumed += size_src;
 
-  if (fi -> contentSize) {
-    size_dest = fi-> contentSize;
+  if (fi.contentSize) {
+    size_dest = fi.contentSize;
   } else {
     size_dest = size_expand;
   }
@@ -112,26 +118,23 @@ static ERL_NIF_TERM frame_decompress(ErlNifEnv* env, int argc, const ERL_NIF_TER
   if (!enif_alloc_binary(size_dest, &dest)) {
     LZ4F_freeDecompressionContext(dctx);
     free(dccopt);
-    free(fi);
     return ERROR_ATOM("nomem");
   }
-
-  // init counter before decompression loop
-  size_dest = dest.size;
-  size_src = step_size;
+  dest_allocated = 1;
 
   do {
+    size_t remaining = bin.size - cnt_consumed;
+    size_src = step_size < remaining ? step_size : remaining;
+    size_dest = dest.size - cnt_produced;
+
     apiret = LZ4F_decompress(dctx, dest.data + cnt_produced, &size_dest,
                              bin.data + cnt_consumed, &size_src,
                              dccopt);
 
     if (LZ4F_isError(apiret))
       {
-        LZ4F_freeDecompressionContext(dctx);
-        enif_release_binary(&dest);
-        free(dccopt);
-        free(fi);
-        return ERROR_ATOM(LZ4F_getErrorName(apiret));
+        error_name = LZ4F_getErrorName(apiret);
+        goto error;
       }
 
     cnt_consumed = cnt_consumed + size_src;
@@ -139,21 +142,21 @@ static ERL_NIF_TERM frame_decompress(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
     //printf("cnt_consumed: %lu, cnt_produced: %lu\n", cnt_consumed, cnt_produced);
 
-    if(apiret == 0) {
-      break;
-    } else {
-      if (step_size < apiret) {
-        size_src = apiret;
-      } else {
-        size_src = step_size;
-      }
-
+    if(apiret != 0) {
       if ( (dest.size - cnt_produced) < size_expand/3 ) {
-        enif_realloc_binary(&dest, cnt_produced + size_expand);
+        if (cnt_produced > SIZE_MAX - size_expand ||
+            !enif_realloc_binary(&dest, cnt_produced + size_expand)) {
+          error_name = "nomem";
+          goto error;
+        }
       }
-      size_dest = dest.size - cnt_produced;
     }
-  } while (cnt_consumed < bin.size);
+  } while (apiret != 0 && cnt_consumed < bin.size);
+
+  if (apiret != 0) {
+    error_name = "incomplete_frame";
+    goto error;
+  }
 
   if( cnt_produced == dest.size) {
     result = enif_make_binary(env, &dest);
@@ -165,13 +168,19 @@ static ERL_NIF_TERM frame_decompress(ErlNifEnv* env, int argc, const ERL_NIF_TER
     {
       enif_release_binary(&dest);
       free(dccopt);
-      free(fi);
       return ERROR_ATOM("badframe");
     }
 
   free(dccopt);
-  free(fi);
   return SUCCESS(result);
+
+error:
+  LZ4F_freeDecompressionContext(dctx);
+  if (dest_allocated) {
+    enif_release_binary(&dest);
+  }
+  free(dccopt);
+  return ERROR_ATOM(error_name);
 }
 
 
@@ -281,56 +290,44 @@ int parse_eframeinfo(ErlNifEnv* env, LZ4F_frameInfo_t *frameinfop, const ERL_NIF
 }
 
 static ERL_NIF_TERM frame_info(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    ERL_NIF_TERM tuple;
-    LZ4F_frameInfo_t* fi;
+    LZ4F_frameInfo_t fi;
 
-    fi = malloc(sizeof(LZ4F_frameInfo_t));
-
-    if (!fi) {
-        return ERROR_ATOM("nomem");
-    }
-
-    if (!parse_eframeinfo(env, fi, &argv[0])) {
-      free(fi);
+    if (!parse_eframeinfo(env, &fi, &argv[0])) {
       return ERROR_ATOM("nomem");
     }
 
-    tuple = eframeinfo(env, fi);
-    return tuple;
+    return eframeinfo(env, &fi);
 }
 
 
 static ERL_NIF_TERM read_frame_info(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
   ErlNifBinary bin;
   LZ4F_dctx * dctx;
-  LZ4F_frameInfo_t * fi;
-
-  fi = malloc(sizeof(LZ4F_frameInfo_t));
-  if ( ! fi)
-    {
-      return ERROR_ATOM("nomem");
-    }
+  LZ4F_frameInfo_t fi;
+  size_t ret;
 
   if ( ! enif_inspect_binary(env, argv[0], &bin) ) {
-    free(fi);
     return ERROR_ATOM("inspect_binary_fail");
   }
 
-  int apiret = LZ4F_createDecompressionContext(&dctx, LZ4F_VERSION);
+  ret = LZ4F_createDecompressionContext(&dctx, LZ4F_VERSION);
 
-  if (LZ4F_isError(apiret))
+  if (LZ4F_isError(ret))
     {
-      free(fi);
-      return ERROR_ATOM(LZ4F_getErrorName(apiret));
+      return ERROR_ATOM(LZ4F_getErrorName(ret));
     }
 
-  size_t head_size = LZ4F_HEADER_SIZE_MAX;
+  size_t head_size = bin.size < LZ4F_HEADER_SIZE_MAX ? bin.size : LZ4F_HEADER_SIZE_MAX;
+  ret = LZ4F_getFrameInfo(dctx, &fi, bin.data, &head_size);
 
-  //todo check error
-  LZ4F_getFrameInfo(dctx, fi, bin.data, &head_size);
+  if (LZ4F_isError(ret)) {
+    const char * error_name = LZ4F_getErrorName(ret);
+    LZ4F_freeDecompressionContext(dctx);
+    return ERROR_ATOM(error_name);
+  }
 
-  ERL_NIF_TERM tuple = eframeinfo(env, fi);
-  free(fi);
+  ERL_NIF_TERM tuple = eframeinfo(env, &fi);
+  LZ4F_freeDecompressionContext(dctx);
   return tuple;
 }
 
